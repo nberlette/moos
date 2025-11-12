@@ -2,19 +2,13 @@
   name = "moos"
   version = "0.1.0"
   edition = "2024"
-  license = "MIT OR Apache-2.0"
+  license = "MIT"
   authors = ["Nicholas Berlette <nick@berlette.com>"]
   description = "Memory-Optimized Objects and Strings (MOOS)"
   keywords = [
-    "cow",
-    "string",
+    "memory optimization",
     "small string optimization",
-    "sso",
-    "borrowed",
-    "owned",
-    "inlined",
-    "inline",
-    "heapless",
+    "inline strings",
     "no-std",
   ]
   repository = "https://github.com/nberlette/moos"
@@ -24,19 +18,16 @@
   publish = true
 
 [features]
-  default = ["serde"]
+  default = ["serde", "rc", "serde?/alloc", "is", "ctors", "index"]
   serde   = ["dep:serde"]
   std     = ["serde?/std"]
+  rc      = ["serde?/rc"]
+  is      = ["derive_more/is_variant"]
+  ctors   = ["derive_more/constructor"]
+  index   = ["derive_more/index", "derive_more/index_mut"]
 
 [dependencies]
-  derive_more = { version = "2", features = [
-    "is_variant",
-    "constructor",
-    "index",
-    "index_mut",
-  ] }
+  derive_more = { version = "2", default-features = false, optional = true }
   serde = { version = "1.0", features = [
     "derive",
-    "rc",
-    "alloc",
   ], default-features = false, optional = true }
