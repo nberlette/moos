@@ -21,8 +21,8 @@ deliver reliable primitives for `no_std` environments.
   version, feature flags).
 - Clarify whether the bug affects `no_std`, `serde`, or `std` builds.
 - Attach profiler output or benchmarks when reporting performance regressions.
-- For security-sensitive reports, email **nick@berlette.com** instead of
-  filing a public issue.
+- For security-sensitive reports, email **nick@berlette.com** instead of filing
+  a public issue.
 
 ---
 
@@ -46,10 +46,10 @@ Helpful tips:
 
 - Disable default features when testing `no_std` compatibility:
   `cargo test --no-default-features`.
-- The `serde` feature is enabled by default; gate any `serde`-specific code
-  with `#[cfg(feature = "serde")]`.
-- Prefer small, focused commits with descriptive messages (present tense,
-  active voice).
+- The `serde` feature is enabled by default; gate any `serde`-specific code with
+  `#[cfg(feature = "serde")]`.
+- Prefer small, focused commits with descriptive messages (present tense, active
+  voice).
 
 ---
 
@@ -80,6 +80,6 @@ in your PR if the change warrants a release.
 
 ## Need help?
 
-Open a discussion thread or ping `@nberlette` on the issue you are investigating.
-We are happy to mentor first-time contributors — just let us know where you are
-stuck. Happy hacking!
+Open a discussion thread or ping `@nberlette` on the issue you are
+investigating. We are happy to mentor first-time contributors — just let us know
+where you are stuck. Happy hacking!
