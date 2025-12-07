@@ -73,8 +73,8 @@ pub struct StringTooLongError;
 /// # use moos::inline_str::*;
 /// # use core::convert::TryFrom;
 ///
-/// # fn main() {
-/// let inline_str: InlineStr = "Hello".into();
+/// # fn main() -> Result<(), StringTooLongError> {
+/// let inline_str: InlineStr = "Hello".parse()?;
 /// assert_eq!(inline_str.as_ref(), "Hello");
 /// assert_eq!(inline_str.len(), 5);
 ///
@@ -83,6 +83,8 @@ pub struct StringTooLongError;
 /// let result = InlineStr::try_from(long_str);
 /// assert!(result.is_err());
 /// assert!(matches!(result, Err(StringTooLongError)));
+///
+/// # Ok(())
 /// # }
 /// ```
 pub struct InlineStr {
@@ -155,6 +157,7 @@ impl InlineStr {
 }
 
 impl Default for InlineStr {
+  #[inline(always)]
   fn default() -> Self {
     Self {
       buf: [0u8; MAX_INLINE_STR_LEN],
@@ -164,18 +167,21 @@ impl Default for InlineStr {
 }
 
 impl Display for InlineStr {
+  #[inline(always)]
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", self.as_str())
   }
 }
 
 impl Borrow<str> for InlineStr {
+  #[inline(always)]
   fn borrow(&self) -> &str {
     self.as_ref()
   }
 }
 
 impl BorrowMut<str> for InlineStr {
+  #[inline(always)]
   fn borrow_mut(&mut self) -> &mut str {
     self.as_mut_str().unwrap_or_default()
   }
@@ -184,42 +190,49 @@ impl BorrowMut<str> for InlineStr {
 impl const Deref for InlineStr {
   type Target = str;
 
+  #[inline(always)]
   fn deref(&self) -> &str {
     self.as_str()
   }
 }
 
 impl DerefMut for InlineStr {
+  #[inline(always)]
   fn deref_mut(&mut self) -> &mut str {
     self.as_mut_str().unwrap_or_default()
   }
 }
 
 impl const AsRef<str> for InlineStr {
+  #[inline(always)]
   fn as_ref(&self) -> &str {
     self.deref()
   }
 }
 
 impl AsMut<str> for InlineStr {
+  #[inline(always)]
   fn as_mut(&mut self) -> &mut str {
     self.deref_mut()
   }
 }
 
 impl From<InlineStr> for String {
+  #[inline(always)]
   fn from(s: InlineStr) -> Self {
     s.deref().to_owned()
   }
 }
 
 impl From<&InlineStr> for String {
+  #[inline(always)]
   fn from(s: &InlineStr) -> Self {
     s.deref().to_owned()
   }
 }
 
 impl<T: AsRef<str>> From<&T> for InlineStr {
+  #[inline(always)]
   fn from(s: &T) -> Self {
     InlineStr::try_from(s.as_ref())
       .expect("String length exceeds InlineStr maximum capacity")
@@ -227,6 +240,7 @@ impl<T: AsRef<str>> From<&T> for InlineStr {
 }
 
 impl From<char> for InlineStr {
+  #[inline(always)]
   fn from(c: char) -> Self {
     let mut buf = [0u8; MAX_INLINE_STR_LEN];
     c.encode_utf8(&mut buf);
@@ -236,6 +250,7 @@ impl From<char> for InlineStr {
 }
 
 impl<'i> From<Cow<'i, str>> for InlineStr {
+  #[inline(always)]
   fn from(cow: Cow<'i, str>) -> Self {
     let src = cow.as_ref().as_bytes();
     let len = src.len().min(MAX_INLINE_STR_LEN);
@@ -249,12 +264,14 @@ impl<'i> From<Cow<'i, str>> for InlineStr {
 impl FromStr for InlineStr {
   type Err = StringTooLongError;
 
+  #[inline(always)]
   fn from_str(s: &str) -> Result<InlineStr, StringTooLongError> {
     InlineStr::try_from(s)
   }
 }
 
 impl From<String> for InlineStr {
+  #[inline(always)]
   fn from(s: String) -> Self {
     let src = s.as_bytes();
     let len = src.len().min(MAX_INLINE_STR_LEN);
@@ -268,6 +285,7 @@ impl From<String> for InlineStr {
 impl TryFrom<&str> for InlineStr {
   type Error = StringTooLongError;
 
+  #[inline(always)]
   fn try_from(s: &str) -> Result<InlineStr, StringTooLongError> {
     let len = s.len();
     if len > MAX_INLINE_STR_LEN {
@@ -281,54 +299,63 @@ impl TryFrom<&str> for InlineStr {
 }
 
 impl Hash for InlineStr {
+  #[inline(always)]
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.deref().hash(state);
   }
 }
 
 impl<T: ToString> PartialEq<T> for InlineStr {
+  #[inline(always)]
   fn eq(&self, other: &T) -> bool {
     self.deref() == other.to_string()
   }
 }
 
 impl PartialEq<InlineStr> for &InlineStr {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     **self == *other
   }
 }
 
 impl PartialEq<str> for InlineStr {
+  #[inline(always)]
   fn eq(&self, other: &str) -> bool {
     self.deref() == other
   }
 }
 
 impl<'i> PartialEq<InlineStr> for Cow<'i, str> {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     self.deref() == other.deref()
   }
 }
 
 impl<'i> PartialEq<InlineStr> for CowStr<'i> {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     self.deref() == other.deref()
   }
 }
 
 impl<'i> PartialEq<InlineStr> for &'i str {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     *self == other.deref()
   }
 }
 
 impl PartialEq<InlineStr> for str {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     self == other.deref()
   }
 }
 
 impl PartialEq<InlineStr> for char {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     let other_str = other.deref();
     if let Some(first_char) = other_str.chars().next() {
@@ -340,36 +367,42 @@ impl PartialEq<InlineStr> for char {
 }
 
 impl PartialEq<InlineStr> for String {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     self.as_str() == other.deref()
   }
 }
 
 impl PartialEq<InlineStr> for &String {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     self.as_str() == other.deref()
   }
 }
 
 impl PartialEq<InlineStr> for &&str {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     **self == other.deref()
   }
 }
 
 impl<'i> PartialEq<InlineStr> for &'i mut str {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     &**self == other.deref()
   }
 }
 
 impl<'i> PartialEq<InlineStr> for &'i mut String {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     self.as_str() == other.deref()
   }
 }
 
 impl<'i> PartialEq<InlineStr> for &'i mut InlineStr {
+  #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     **self == *other
   }
@@ -378,18 +411,21 @@ impl<'i> PartialEq<InlineStr> for &'i mut InlineStr {
 impl Eq for InlineStr {}
 
 impl PartialOrd<str> for InlineStr {
+  #[inline(always)]
   fn partial_cmp(&self, other: &str) -> Option<Ordering> {
     Some(self.deref().cmp(other))
   }
 }
 
 impl PartialOrd<InlineStr> for str {
+  #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some(self.cmp(other.deref()))
   }
 }
 
 impl PartialOrd<InlineStr> for char {
+  #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     let that = other.deref();
     if let Some(first_char) = that.chars().next() {
@@ -407,48 +443,56 @@ impl PartialOrd<InlineStr> for String {
 }
 
 impl PartialOrd<InlineStr> for &String {
+  #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some(self.as_str().cmp(other.deref()))
   }
 }
 
 impl PartialOrd<InlineStr> for &&str {
+  #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some((**self).cmp(other.deref()))
   }
 }
 
 impl<'i> PartialOrd<InlineStr> for &'i mut str {
+  #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some((&**self).cmp(other.deref()))
   }
 }
 
 impl<'i> PartialOrd<InlineStr> for &'i mut String {
+  #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some(self.as_str().cmp(other.deref()))
   }
 }
 
 impl<'i> PartialOrd<InlineStr> for &'i mut InlineStr {
+  #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some((**self).deref().cmp(other.deref()))
   }
 }
 
 impl<'i> PartialOrd<InlineStr> for Cow<'i, str> {
+  #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some(self.deref().cmp(other.deref()))
   }
 }
 
 impl<'i> PartialOrd<InlineStr> for CowStr<'i> {
+  #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some(self.deref().cmp(other.deref()))
   }
 }
 
 impl<T: ToString> PartialOrd<T> for InlineStr {
+  #[inline(always)]
   fn partial_cmp(&self, other: &T) -> Option<Ordering> {
     let that = other.to_string();
     Some(self.deref().cmp(&that))
@@ -456,6 +500,7 @@ impl<T: ToString> PartialOrd<T> for InlineStr {
 }
 
 impl Ord for InlineStr {
+  #[inline(always)]
   fn cmp(&self, other: &Self) -> Ordering {
     self.deref().cmp(other.deref())
   }

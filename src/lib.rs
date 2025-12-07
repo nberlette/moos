@@ -20,9 +20,12 @@
 //! ```rust
 //! use moos::CowStr;
 //!
+//! # fn main() -> Result<(), moos::inline_str::StringTooLongError> {
 //! let owned = CowStr::Owned("This is an owned string.".into());
-//! let inlined = CowStr::Inlined("smol str!".into());
+//! let inlined = CowStr::Inlined("smol str!".parse()?);
 //! let borrowed = CowStr::Borrowed("This is a borrowed string.");
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## [`InlineStr`]

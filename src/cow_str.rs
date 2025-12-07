@@ -13,12 +13,10 @@ use core::fmt;
 use core::fmt::Display;
 use core::hash::Hash;
 use core::hash::Hasher;
-use core::mem::transmute;
+use core::mem::transmute_copy;
 use core::ops::Deref;
 use core::ops::DerefMut;
 use core::str;
-
-use derive_more::with_trait::IsVariant;
 
 use crate::inline_str::*;
 
@@ -41,18 +39,21 @@ use crate::inline_str::*;
 /// ```rust
 /// # use moos::CowStr;
 ///
-/// # fn main() {
+/// # fn main() -> Result<(), moos::inline_str::StringTooLongError> {
 /// let owned = CowStr::Owned("This is an owned string.".into());
-/// let inlined = CowStr::Inlined("smol str!".into());
+/// // this is a fallible conversion, thus `From<&str>` is not implemented.
+/// let inlined = CowStr::Inlined("smol str!".parse()?);
 /// let borrowed = CowStr::Borrowed("This is a borrowed string.");
 ///
 /// // checking if a CowStr is inlined, owned, or borrowed
 /// assert!(owned.is_owned(), "Expected an owned CowStr!");
 /// assert!(inlined.is_inlined(), "Expected an inlined CowStr!");
 /// assert!(borrowed.is_borrowed(), "Expected a borrowed CowStr!");
+/// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Eq, IsVariant)]
+#[derive(Debug, Eq)]
+#[cfg_attr(feature = "is_variant", derive(derive_more::IsVariant))]
 pub enum CowStr<'i> {
   /// An immutable boxed string slice that owns the data. This is the
   /// default variant for owned strings (i.e. [`String`] instances), which
@@ -73,27 +74,27 @@ pub enum CowStr<'i> {
 
 impl<'i> CowStr<'i> {
   #[inline(always)]
-  pub fn as_str(&self) -> &str {
-    self.deref()
-  }
-
-  #[inline(always)]
-  pub fn as_mut_str(&mut self) -> &mut str {
+  pub const fn as_str(&self) -> &str {
     match self {
-      CowStr::Owned(b) => &mut **b,
-      CowStr::Borrowed(b) => {
-        let s = (*b).to_string();
-        let mut boxed_str = s.into_boxed_str();
-        unsafe { transmute(boxed_str.as_bytes_mut()) }
-      }
-      CowStr::Inlined(s) => s
-        .get_mut(..)
-        .expect("Expected a mutable reference to an InlineStr"),
+      CowStr::Owned(b) => b,
+      CowStr::Borrowed(b) => *b,
+      CowStr::Inlined(s) => &*s.deref(),
     }
   }
 
   #[inline(always)]
-  pub fn as_bytes(&self) -> &[u8] {
+  pub unsafe fn as_mut_str(&mut self) -> &mut str {
+    unsafe {
+      match self {
+        CowStr::Owned(b) => &mut **b,
+        CowStr::Borrowed(b) => transmute_copy(&b.to_owned().as_bytes_mut()),
+        CowStr::Inlined(s) => s.as_mut_str_unchecked(),
+      }
+    }
+  }
+
+  #[inline(always)]
+  pub const fn as_bytes(&self) -> &[u8] {
     match self {
       CowStr::Owned(b) => b.as_bytes(),
       CowStr::Borrowed(b) => b.as_bytes(),
@@ -104,18 +105,16 @@ impl<'i> CowStr<'i> {
   #[inline(always)]
   pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
     unsafe {
-      match self {
-        CowStr::Owned(b) => b.as_bytes_mut(),
-        CowStr::Borrowed(b) => transmute::<&mut str, &mut [u8]>(
-          alloc::sync::Arc::make_mut(&mut alloc::sync::Arc::from(*b)),
-        ),
-        CowStr::Inlined(s) => s.as_bytes_mut(),
+      match *self {
+        CowStr::Owned(ref mut b) => b.as_bytes_mut(),
+        CowStr::Borrowed(b) => transmute_copy(&b.to_owned().as_bytes_mut()),
+        CowStr::Inlined(ref mut s) => s.as_bytes_mut(),
       }
     }
   }
 
   #[inline(always)]
-  pub fn len(&self) -> usize {
+  pub const fn len(&self) -> usize {
     self.deref().len()
   }
 
@@ -128,6 +127,7 @@ impl<'i> CowStr<'i> {
     }
   }
 
+  #[inline(always)]
   pub fn into_string(self) -> String {
     match self {
       CowStr::Owned(b) => b.into(),
@@ -164,7 +164,7 @@ impl<'i> Clone for CowStr<'i> {
     match self {
       CowStr::Owned(s) => match InlineStr::try_from(&**s) {
         Ok(inline) => CowStr::Inlined(inline),
-        Err(..) => CowStr::Owned(s.clone()),
+        Err(_) => CowStr::Owned(s.clone()),
       },
       CowStr::Borrowed(s) => CowStr::Borrowed(*s),
       CowStr::Inlined(s) => CowStr::Inlined(*s),
@@ -172,37 +172,23 @@ impl<'i> Clone for CowStr<'i> {
   }
 }
 
-impl<'i> Deref for CowStr<'i> {
+impl<'i> const Deref for CowStr<'i> {
   type Target = str;
 
   #[inline(always)]
   fn deref(&self) -> &Self::Target {
-    match self {
-      CowStr::Owned(b) => b,
-      CowStr::Borrowed(b) => *b,
-      CowStr::Inlined(s) => &*s.deref(),
-    }
+    self.as_str()
   }
 }
 
 impl<'i> DerefMut for CowStr<'i> {
   #[inline(always)]
   fn deref_mut(&mut self) -> &mut str {
-    match self {
-      CowStr::Owned(b) => &mut **b,
-      CowStr::Borrowed(b) => {
-        let s = String::from(*b);
-        let mut boxed_str = s.into_boxed_str();
-        unsafe { transmute(boxed_str.as_bytes_mut()) }
-      }
-      CowStr::Inlined(s) => s
-        .get_mut(..)
-        .expect("Expected a mutable reference to an InlineStr"),
-    }
+    unsafe { self.as_mut_str() }
   }
 }
 
-impl<'i> AsRef<str> for CowStr<'i> {
+impl<'i> const AsRef<str> for CowStr<'i> {
   #[inline(always)]
   fn as_ref(&self) -> &str {
     self.deref()
@@ -216,7 +202,7 @@ impl<'i> AsMut<str> for CowStr<'i> {
   }
 }
 
-impl<'i> Borrow<str> for CowStr<'i> {
+impl<'i> const Borrow<str> for CowStr<'i> {
   fn borrow(&self) -> &str {
     self.deref()
   }
@@ -228,9 +214,9 @@ impl<'i> BorrowMut<str> for CowStr<'i> {
   }
 }
 
-impl<'i> PartialEq<CowStr<'i>> for CowStr<'i> {
+impl<'i> PartialEq for CowStr<'i> {
   #[inline(always)]
-  fn eq(&self, other: &CowStr<'_>) -> bool {
+  fn eq(&self, other: &Self) -> bool {
     self.deref() == other.deref()
   }
 }
@@ -378,11 +364,7 @@ impl<'i> From<Cow<'i, char>> for CowStr<'i> {
 impl<'i> From<CowStr<'i>> for String {
   #[inline(always)]
   fn from(s: CowStr<'i>) -> Self {
-    match s {
-      CowStr::Owned(s) => s.into(),
-      CowStr::Inlined(s) => s.as_ref().into(),
-      CowStr::Borrowed(s) => s.into(),
-    }
+    s.into_string()
   }
 }
 
