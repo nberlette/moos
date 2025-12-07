@@ -10,10 +10,15 @@
 
 ## Overview
 
-The **moos** crate (pronounced _"moose"_) is a collection of low-level string
-types designed for use in `no_std` environments, with a focus on performance and
-memory efficiency, while providing a rich set of features and interoperability
-with common string types in Rust.
+**`moos`** — pronounced _"moose"_ — is a small collection of memory-optimized
+string types for Rust, implementing small string optimization (SSO) techniques
+and copy-on-write (COW) semantics to minimize heap allocations and improve the
+performance of string operations.
+
+Designed for use in `no_std` environments, `moos` prioritizes performance,
+memory efficiency, and interoperability with common Rust string types. It is
+ideal for applications where memory usage is a concern, such as embedded systems
+or real-time applications.
 
 ## Usage
 
