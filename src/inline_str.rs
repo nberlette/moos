@@ -127,6 +127,11 @@ impl InlineStr {
   }
 
   /// Returns a reference to the string as a slice.
+  ///
+  /// # Panics
+  ///
+  /// This method panics if the internal byte buffer does not contain valid
+  /// UTF-8 data.
   #[inline]
   pub fn as_str(&self) -> &str {
     if let Ok(s) = str::from_utf8(&self.as_bytes()) {
@@ -143,14 +148,18 @@ impl InlineStr {
   }
 
   /// Returns a reference to the string as a slice, without checking
-  /// for UTF-8 validity. The caller must ensure the data is valid UTF-8.
+  /// for UTF-8 validity.
+  ///
+  /// SAFETY: The caller must ensure the data is valid UTF-8.
   #[inline]
   pub unsafe fn as_str_unchecked(&self) -> &str {
     unsafe { str::from_utf8_unchecked(self.as_bytes()) }
   }
 
   /// Returns a mutable reference to the string as a slice, without checking
-  /// for UTF-8 validity. The caller must ensure the data is valid UTF-8.
+  /// for UTF-8 validity.
+  ///
+  /// SAFETY: The caller must ensure the data is valid UTF-8.
   #[inline]
   pub unsafe fn as_mut_str_unchecked(&mut self) -> &mut str {
     unsafe { str::from_utf8_unchecked_mut(self.as_bytes_mut()) }
