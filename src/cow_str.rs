@@ -74,7 +74,7 @@ pub enum CowStr<'i> {
 
 impl<'i> CowStr<'i> {
   #[inline(always)]
-  pub const fn as_str(&self) -> &str {
+  pub fn as_str(&self) -> &str {
     match self {
       CowStr::Owned(b) => b,
       CowStr::Borrowed(b) => *b,
@@ -94,7 +94,7 @@ impl<'i> CowStr<'i> {
   }
 
   #[inline(always)]
-  pub const fn as_bytes(&self) -> &[u8] {
+  pub fn as_bytes(&self) -> &[u8] {
     match self {
       CowStr::Owned(b) => b.as_bytes(),
       CowStr::Borrowed(b) => b.as_bytes(),
@@ -114,8 +114,8 @@ impl<'i> CowStr<'i> {
   }
 
   #[inline(always)]
-  pub const fn len(&self) -> usize {
-    self.deref().len()
+  pub fn len(&self) -> usize {
+    self.as_bytes().len()
   }
 
   #[inline(always)]
@@ -172,7 +172,7 @@ impl<'i> Clone for CowStr<'i> {
   }
 }
 
-impl<'i> const Deref for CowStr<'i> {
+impl<'i> Deref for CowStr<'i> {
   type Target = str;
 
   #[inline(always)]
@@ -188,7 +188,7 @@ impl<'i> DerefMut for CowStr<'i> {
   }
 }
 
-impl<'i> const AsRef<str> for CowStr<'i> {
+impl<'i> AsRef<str> for CowStr<'i> {
   #[inline(always)]
   fn as_ref(&self) -> &str {
     self.deref()
@@ -202,7 +202,7 @@ impl<'i> AsMut<str> for CowStr<'i> {
   }
 }
 
-impl<'i> const Borrow<str> for CowStr<'i> {
+impl<'i> Borrow<str> for CowStr<'i> {
   fn borrow(&self) -> &str {
     self.deref()
   }
