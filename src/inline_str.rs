@@ -559,12 +559,34 @@ mod tests {
   }
 
   #[test]
+  #[cfg(target_pointer_width = "64")]
   fn try_inline_str_from_str() {
     let s = "Hello, world!";
     let inline_str = InlineStr::try_from(s);
     assert!(inline_str.is_ok());
     let inline_str = inline_str.unwrap();
     assert_eq!(inline_str.deref(), s);
+  }
+
+  #[test]
+  #[cfg(target_pointer_width = "32")]
+  fn inline_str_fits_ten() {
+    let s = "0123456789";
+    let stack_str = InlineStr::try_from(s);
+    assert!(stack_str.is_ok());
+    let stack_str = stack_str.unwrap();
+    assert_eq!(stack_str.len(), 10);
+    assert_eq!(stack_str.deref().len(), 10);
+    assert_eq!(stack_str.deref(), s);
+  }
+
+  #[test]
+  #[cfg(target_pointer_width = "32")]
+  fn inline_str_not_fits_eleven() {
+    let s = "0123456789a";
+    let err = InlineStr::try_from(s);
+    assert!(err.is_err());
+    assert!(matches!(err, Err(StringTooLongError)));
   }
 
   #[test]
