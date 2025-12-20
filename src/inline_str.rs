@@ -116,25 +116,19 @@ impl InlineStr {
 
   /// Returns a reference to the underlying byte buffer.
   #[inline]
-  pub const fn as_bytes(&self) -> &[u8] {
-    &self
-      .buf
-      .get(..self.len as usize)
-      .expect("InlineStr length should be valid and within bounds")
+  pub fn as_bytes(&self) -> &[u8] {
+    &self.buf[..self.len as usize]
   }
 
   /// Returns a mutable reference to the underlying byte buffer.
   #[inline]
-  pub const fn as_bytes_mut(&mut self) -> &mut [u8] {
-    self
-      .buf
-      .get_mut(..self.len as usize)
-      .expect("InlineStr length should be valid and within bounds")
+  pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+    &mut self.buf[..self.len as usize]
   }
 
   /// Returns a reference to the string as a slice.
   #[inline]
-  pub const fn as_str(&self) -> &str {
+  pub fn as_str(&self) -> &str {
     if let Ok(s) = str::from_utf8(&self.as_bytes()) {
       s
     } else {
@@ -144,21 +138,21 @@ impl InlineStr {
 
   /// Returns a mutable reference to the string as a slice.
   #[inline]
-  pub const fn as_mut_str(&mut self) -> Result<&mut str, str::Utf8Error> {
+  pub fn as_mut_str(&mut self) -> Result<&mut str, str::Utf8Error> {
     str::from_utf8_mut(self.as_bytes_mut())
   }
 
   /// Returns a reference to the string as a slice, without checking
   /// for UTF-8 validity. The caller must ensure the data is valid UTF-8.
   #[inline]
-  pub const unsafe fn as_str_unchecked(&self) -> &str {
+  pub unsafe fn as_str_unchecked(&self) -> &str {
     unsafe { str::from_utf8_unchecked(self.as_bytes()) }
   }
 
   /// Returns a mutable reference to the string as a slice, without checking
   /// for UTF-8 validity. The caller must ensure the data is valid UTF-8.
   #[inline]
-  pub const unsafe fn as_mut_str_unchecked(&mut self) -> &mut str {
+  pub unsafe fn as_mut_str_unchecked(&mut self) -> &mut str {
     unsafe { str::from_utf8_unchecked_mut(self.as_bytes_mut()) }
   }
 }
@@ -194,7 +188,7 @@ impl BorrowMut<str> for InlineStr {
   }
 }
 
-impl const Deref for InlineStr {
+impl Deref for InlineStr {
   type Target = str;
 
   #[inline(always)]
@@ -210,7 +204,7 @@ impl DerefMut for InlineStr {
   }
 }
 
-impl const AsRef<str> for InlineStr {
+impl AsRef<str> for InlineStr {
   #[inline(always)]
   fn as_ref(&self) -> &str {
     self.deref()
