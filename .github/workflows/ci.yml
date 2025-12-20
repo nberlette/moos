@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      release:
+        type: boolean
+        description: 'Create a GitHub Release?'
+        default: false
+        required: false
+      publish:
+        type: boolean
+        description: 'Publish to crates.io?'
+        default: false
+        required: false
+      version:
+        type: string
+        description: 'Version (if $GITHUB_REF is not a tag)'
+        default: ''
+        required: false
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: fmt
+        run: cargo fmt --all --check
+
+      - name: lint
+        run: cargo clippy --all-targets --all-features --no-deps -D warnings
+
+      - name: test
+        run: cargo test --all-features
+
+  publish:
+    name: Publish & Release
+    needs: check
+    runs-on: ubuntu-latest
+    if: (startsWith(github.ref, 'refs/tags/') && github.event.inputs.publish != 'false') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+    env:
+      CARGO_TERM_COLOR: always
+      VERSION: ${{ github.event.inputs.version }}
+    outputs:
+      published: ${{ steps.publish.outcome == 'success' }}
+      released: ${{ steps.release.outcome == 'success' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache
+        uses: Swatinem/rust-cache@v2
+
+      - if: |
+          github.event.inputs.publish != 'false' && (
+            github.event.inputs.version != '' ||
+            startsWith(github.ref, 'refs/tags/')
+          )
+        name: publish
+        id: publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "${CARGO_REGISTRY_TOKEN}" ]; then
+            echo "CARGO_REGISTRY_TOKEN is not set." >&2
+            exit 1
+          fi
+          cargo publish --token "${CARGO_REGISTRY_TOKEN}"
+
+      - id: release_exists
+        uses: actions/github-script@v7
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        with:
+          result-encoding: string
+          script: |
+            const ref = context.ref;
+            const ref_name = ref.replace('refs/tags/', '');
+            let tag = process.env.RELEASE_VERSION;
+            if (ref === ref_name && !tag) {
+              // indicates the ref is not a tag ref, thus we
+              // throw if no version was provided.
+              throw new Error('No version provided for release.');
+            } else if (!tag) {
+              tag = ref_name;
+            }
+
+            try {
+              const { owner, repo } = context.repo;
+              await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              return true;
+            } catch (error) {
+              if (error.status === 404) {
+                return false;
+              } else {
+                throw error;
+              }
+            }
+
+      - name: release
+        id: release
+        if: |
+          (github.event.inputs.release == 'true' && github.event_name == 'workflow_dispatch') ||
+          (
+            startsWith(github.ref, 'refs/tags/') &&
+            steps.release_exists.outputs.result == 'false'
+          )
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [ -z "${GITHUB_TOKEN}" ]; then
+            echo "GITHUB_TOKEN is not set." >&2
+            exit 1
+          fi
+          ref=${GITHUB_REF}
+          ref_name=${ref#refs/tags/}
+          TAG=${RELEASE_VERSION}
+          if [ -z "${TAG}" ]; then
+            TAG=${ref_name}
+          fi
+          TITLE="v${TAG#v}"
+          if [ "${TITLE}" != "v" ]; then
+            gh release create "${TAG}" -t "${TITLE}" --generate-notes --latest
+          else
+            echo "No valid tag found for release." >&2
+            exit 1
+          fi
