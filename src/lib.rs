@@ -62,9 +62,6 @@
 //!
 //! > † enabled by default
 
-#![feature(const_convert)]
-#![feature(const_index)]
-#![feature(const_trait_impl)]
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
 
 extern crate alloc;
