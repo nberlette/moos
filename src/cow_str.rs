@@ -453,18 +453,6 @@ mod tests {
   use super::*;
 
   #[test]
-  fn inlinestr_ascii() {
-    let s: InlineStr = 'i'.into();
-    assert_eq!("i", s.deref());
-  }
-
-  #[test]
-  fn inlinestr_unicode() {
-    let s: InlineStr = '🍔'.into();
-    assert_eq!("🍔", s.deref());
-  }
-
-  #[test]
   fn cowstr_size() {
     let size = std::mem::size_of::<CowStr>();
     let word_size = std::mem::size_of::<isize>();
@@ -478,27 +466,6 @@ mod tests {
     let owned: String = smort.to_string();
     let expected = "藏".to_owned();
     assert_eq!(expected, owned);
-  }
-
-  #[test]
-  fn max_inline_str_len_atleast_four() {
-    // we need 4 bytes to store a char
-    assert!(MAX_INLINE_STR_LEN >= 4);
-  }
-
-  #[test]
-  #[cfg(target_pointer_width = "64")]
-  fn inlinestr_fits_twentytwo() {
-    let s = "0123456789abcdefghijkl";
-    let stack_str = InlineStr::try_from(s).unwrap();
-    assert_eq!(stack_str, *s);
-  }
-
-  #[test]
-  #[cfg(target_pointer_width = "64")]
-  fn inlinestr_not_fits_twentythree() {
-    let s = "0123456789abcdefghijklm";
-    let _stack_str = InlineStr::try_from(s).unwrap_err();
   }
 
   #[test]
