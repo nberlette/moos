@@ -27,3 +27,6 @@ serde = { version = "1.0", features = [
   "rc",
   "alloc",
 ], default-features = false, optional = true }
+
+[dev-dependencies]
+serde_json = "1.0"
