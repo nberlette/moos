@@ -526,7 +526,8 @@ mod tests {
 
   #[test]
   fn max_inline_str_len_is_at_least_4_bytes() {
-    assert!(MAX_INLINE_STR_LEN >= 4);
+    let max = MAX_INLINE_STR_LEN;
+    assert!(max >= 4);
   }
 
   #[test]

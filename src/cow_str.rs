@@ -131,11 +131,21 @@ impl<'i> CowStr<'i> {
     }
   }
 
+  /// Returns the length of the `CowStr` in bytes.
   #[inline(always)]
   pub fn len(&self) -> usize {
     self.as_bytes().len()
   }
 
+  /// Returns `true` if the `CowStr` is empty.
+  #[inline(always)]
+  pub fn is_empty(&self) -> bool {
+    self.len() == 0
+  }
+
+  /// Converts the `CowStr` into an owned `String`, cloning the data if
+  /// necessary.
+  #[deprecated(since = "0.4.0", note = "use `into_string` instead")]
   #[inline(always)]
   pub fn into_owned(self) -> String {
     match self {
