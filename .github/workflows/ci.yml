@@ -51,7 +51,7 @@ jobs:
         run: cargo fmt --all --check
 
       - name: lint
-        run: cargo clippy --all-targets --all-features --no-deps -D warnings
+        run: cargo clippy --all-targets --all-features --no-deps -- -D warnings
 
       - name: test
         run: cargo test --all-features
