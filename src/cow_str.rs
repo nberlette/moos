@@ -77,24 +77,26 @@ impl<'i> CowStr<'i> {
   pub fn as_str(&self) -> &str {
     match self {
       CowStr::Owned(b) => b,
-      CowStr::Borrowed(b) => *b,
-      CowStr::Inlined(s) => &*s.deref(),
+      CowStr::Borrowed(b) => b,
+      CowStr::Inlined(s) => s.deref(),
     }
   }
 
   /// Returns a mutable reference to the string as a slice.
   ///
-  /// SAFETY: The caller must ensure that the mutable reference does not
-  /// violate any aliasing rules, i.e., there are no other references to the
-  /// same data while this mutable reference is in use. This is especially
-  /// important for the `Borrowed` variant, as modifying the data could lead to
-  /// undefined behavior if there are other references to the same data. Use
-  /// with caution and discretion.
+  /// # Safety
+  ///
+  /// The caller must ensure that the mutable reference does not violate any
+  /// aliasing rules, i.e., there are no other references to the same data while
+  /// this mutable reference is in use. This is especially important for the
+  /// `Borrowed` variant, as modifying the data could lead to undefined behavior
+  /// if there are other references to the same data. Use with caution and
+  /// discretion.
   #[inline(always)]
   pub unsafe fn as_mut_str(&mut self) -> &mut str {
     unsafe {
       match self {
-        CowStr::Owned(b) => &mut **b,
+        CowStr::Owned(b) => b,
         CowStr::Borrowed(b) => transmute_copy(&b.to_owned().as_bytes_mut()),
         CowStr::Inlined(s) => s.as_mut_str_unchecked(),
       }
@@ -112,10 +114,12 @@ impl<'i> CowStr<'i> {
 
   /// Returns a mutable byte slice of the string's contents.
   ///
-  /// SAFETY: The caller must ensure that the underlying data is not aliased
-  /// while the mutable byte slice is in use. This is particularly important
-  /// for the [`CowStr::Borrowed`] variant - modifying the data while there
-  /// are existing references to it is undefined behavior. Use with caution.
+  /// # Safety
+  ///
+  /// The caller must ensure that the underlying data is not aliased while the
+  /// mutable byte slice is in use. This is particularly important for the
+  /// [`CowStr::Borrowed`] variant - modifying the data while there are existing
+  /// references to it is undefined behavior. Use with caution.
   #[inline(always)]
   pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
     unsafe {
@@ -180,7 +184,7 @@ impl<'i> Clone for CowStr<'i> {
         Ok(inline) => CowStr::Inlined(inline),
         Err(_) => CowStr::Owned(s.clone()),
       },
-      CowStr::Borrowed(s) => CowStr::Borrowed(*s),
+      CowStr::Borrowed(s) => CowStr::Borrowed(s),
       CowStr::Inlined(s) => CowStr::Inlined(*s),
     }
   }
@@ -266,7 +270,7 @@ impl<'i> PartialEq<CowStr<'i>> for str {
 impl<'i> PartialEq<CowStr<'i>> for &'i str {
   #[inline(always)]
   fn eq(&self, other: &CowStr<'_>) -> bool {
-    self == &*other
+    other.deref() == *self
   }
 }
 

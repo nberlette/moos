@@ -134,7 +134,7 @@ impl InlineStr {
   /// UTF-8 data.
   #[inline]
   pub fn as_str(&self) -> &str {
-    if let Ok(s) = str::from_utf8(&self.as_bytes()) {
+    if let Ok(s) = str::from_utf8(self.as_bytes()) {
       s
     } else {
       panic!("InlineStr should only contain valid UTF-8 data");
@@ -150,7 +150,9 @@ impl InlineStr {
   /// Returns a reference to the string as a slice, without checking
   /// for UTF-8 validity.
   ///
-  /// SAFETY: The caller must ensure the data is valid UTF-8.
+  /// # Safety
+  ///
+  /// The caller must ensure the data is valid UTF-8.
   #[inline]
   pub unsafe fn as_str_unchecked(&self) -> &str {
     unsafe { str::from_utf8_unchecked(self.as_bytes()) }
@@ -159,7 +161,9 @@ impl InlineStr {
   /// Returns a mutable reference to the string as a slice, without checking
   /// for UTF-8 validity.
   ///
-  /// SAFETY: The caller must ensure the data is valid UTF-8.
+  /// # Safety
+  ///
+  /// The caller must ensure the data is valid UTF-8.
   #[inline]
   pub unsafe fn as_mut_str_unchecked(&mut self) -> &mut str {
     unsafe { str::from_utf8_unchecked_mut(self.as_bytes_mut()) }
@@ -350,7 +354,7 @@ impl<'i> PartialEq<InlineStr> for CowStr<'i> {
   }
 }
 
-impl<'i> PartialEq<InlineStr> for &'i str {
+impl PartialEq<InlineStr> for &str {
   #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     *self == other.deref()
@@ -397,21 +401,21 @@ impl PartialEq<InlineStr> for &&str {
   }
 }
 
-impl<'i> PartialEq<InlineStr> for &'i mut str {
+impl PartialEq<InlineStr> for &mut str {
   #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     &**self == other.deref()
   }
 }
 
-impl<'i> PartialEq<InlineStr> for &'i mut String {
+impl PartialEq<InlineStr> for &mut String {
   #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     self.as_str() == other.deref()
   }
 }
 
-impl<'i> PartialEq<InlineStr> for &'i mut InlineStr {
+impl PartialEq<InlineStr> for &mut InlineStr {
   #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     **self == *other
@@ -466,21 +470,21 @@ impl PartialOrd<InlineStr> for &&str {
   }
 }
 
-impl<'i> PartialOrd<InlineStr> for &'i mut str {
+impl PartialOrd<InlineStr> for &mut str {
   #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
-    Some((&**self).cmp(other.deref()))
+    Some((**self).cmp(other.deref()))
   }
 }
 
-impl<'i> PartialOrd<InlineStr> for &'i mut String {
+impl PartialOrd<InlineStr> for &mut String {
   #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some(self.as_str().cmp(other.deref()))
   }
 }
 
-impl<'i> PartialOrd<InlineStr> for &'i mut InlineStr {
+impl PartialOrd<InlineStr> for &mut InlineStr {
   #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some((**self).deref().cmp(other.deref()))
