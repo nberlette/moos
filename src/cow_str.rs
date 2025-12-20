@@ -74,19 +74,29 @@ pub enum CowStr<'i> {
 
 impl<'i> CowStr<'i> {
   #[inline(always)]
-  pub const fn as_str(&self) -> &str {
+  pub fn as_str(&self) -> &str {
     match self {
       CowStr::Owned(b) => b,
-      CowStr::Borrowed(b) => *b,
-      CowStr::Inlined(s) => &*s.deref(),
+      CowStr::Borrowed(b) => b,
+      CowStr::Inlined(s) => s.deref(),
     }
   }
 
+  /// Returns a mutable reference to the string as a slice.
+  ///
+  /// # Safety
+  ///
+  /// The caller must ensure that the mutable reference does not violate any
+  /// aliasing rules, i.e., there are no other references to the same data while
+  /// this mutable reference is in use. This is especially important for the
+  /// `Borrowed` variant, as modifying the data could lead to undefined behavior
+  /// if there are other references to the same data. Use with caution and
+  /// discretion.
   #[inline(always)]
   pub unsafe fn as_mut_str(&mut self) -> &mut str {
     unsafe {
       match self {
-        CowStr::Owned(b) => &mut **b,
+        CowStr::Owned(b) => b,
         CowStr::Borrowed(b) => transmute_copy(&b.to_owned().as_bytes_mut()),
         CowStr::Inlined(s) => s.as_mut_str_unchecked(),
       }
@@ -94,7 +104,7 @@ impl<'i> CowStr<'i> {
   }
 
   #[inline(always)]
-  pub const fn as_bytes(&self) -> &[u8] {
+  pub fn as_bytes(&self) -> &[u8] {
     match self {
       CowStr::Owned(b) => b.as_bytes(),
       CowStr::Borrowed(b) => b.as_bytes(),
@@ -102,6 +112,14 @@ impl<'i> CowStr<'i> {
     }
   }
 
+  /// Returns a mutable byte slice of the string's contents.
+  ///
+  /// # Safety
+  ///
+  /// The caller must ensure that the underlying data is not aliased while the
+  /// mutable byte slice is in use. This is particularly important for the
+  /// [`CowStr::Borrowed`] variant - modifying the data while there are existing
+  /// references to it is undefined behavior. Use with caution.
   #[inline(always)]
   pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
     unsafe {
@@ -113,11 +131,21 @@ impl<'i> CowStr<'i> {
     }
   }
 
+  /// Returns the length of the `CowStr` in bytes.
   #[inline(always)]
-  pub const fn len(&self) -> usize {
-    self.deref().len()
+  pub fn len(&self) -> usize {
+    self.as_bytes().len()
   }
 
+  /// Returns `true` if the `CowStr` is empty.
+  #[inline(always)]
+  pub fn is_empty(&self) -> bool {
+    self.len() == 0
+  }
+
+  /// Converts the `CowStr` into an owned `String`, cloning the data if
+  /// necessary.
+  #[deprecated(since = "0.4.0", note = "use `into_string` instead")]
   #[inline(always)]
   pub fn into_owned(self) -> String {
     match self {
@@ -166,13 +194,13 @@ impl<'i> Clone for CowStr<'i> {
         Ok(inline) => CowStr::Inlined(inline),
         Err(_) => CowStr::Owned(s.clone()),
       },
-      CowStr::Borrowed(s) => CowStr::Borrowed(*s),
+      CowStr::Borrowed(s) => CowStr::Borrowed(s),
       CowStr::Inlined(s) => CowStr::Inlined(*s),
     }
   }
 }
 
-impl<'i> const Deref for CowStr<'i> {
+impl<'i> Deref for CowStr<'i> {
   type Target = str;
 
   #[inline(always)]
@@ -188,7 +216,7 @@ impl<'i> DerefMut for CowStr<'i> {
   }
 }
 
-impl<'i> const AsRef<str> for CowStr<'i> {
+impl<'i> AsRef<str> for CowStr<'i> {
   #[inline(always)]
   fn as_ref(&self) -> &str {
     self.deref()
@@ -202,7 +230,7 @@ impl<'i> AsMut<str> for CowStr<'i> {
   }
 }
 
-impl<'i> const Borrow<str> for CowStr<'i> {
+impl<'i> Borrow<str> for CowStr<'i> {
   fn borrow(&self) -> &str {
     self.deref()
   }
@@ -252,7 +280,7 @@ impl<'i> PartialEq<CowStr<'i>> for str {
 impl<'i> PartialEq<CowStr<'i>> for &'i str {
   #[inline(always)]
   fn eq(&self, other: &CowStr<'_>) -> bool {
-    self == &*other
+    other.deref() == *self
   }
 }
 
@@ -439,18 +467,6 @@ mod tests {
   use super::*;
 
   #[test]
-  fn inlinestr_ascii() {
-    let s: InlineStr = 'i'.into();
-    assert_eq!("i", s.deref());
-  }
-
-  #[test]
-  fn inlinestr_unicode() {
-    let s: InlineStr = '🍔'.into();
-    assert_eq!("🍔", s.deref());
-  }
-
-  #[test]
   fn cowstr_size() {
     let size = std::mem::size_of::<CowStr>();
     let word_size = std::mem::size_of::<isize>();
@@ -464,27 +480,6 @@ mod tests {
     let owned: String = smort.to_string();
     let expected = "藏".to_owned();
     assert_eq!(expected, owned);
-  }
-
-  #[test]
-  fn max_inline_str_len_atleast_four() {
-    // we need 4 bytes to store a char
-    assert!(MAX_INLINE_STR_LEN >= 4);
-  }
-
-  #[test]
-  #[cfg(target_pointer_width = "64")]
-  fn inlinestr_fits_twentytwo() {
-    let s = "0123456789abcdefghijkl";
-    let stack_str = InlineStr::try_from(s).unwrap();
-    assert_eq!(stack_str, *s);
-  }
-
-  #[test]
-  #[cfg(target_pointer_width = "64")]
-  fn inlinestr_not_fits_twentythree() {
-    let s = "0123456789abcdefghijklm";
-    let _stack_str = InlineStr::try_from(s).unwrap_err();
   }
 
   #[test]

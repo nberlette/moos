@@ -21,10 +21,6 @@ use core::ops::DerefMut;
 use core::str;
 use core::str::FromStr;
 
-use derive_more::with_trait::Constructor;
-use derive_more::with_trait::Index;
-use derive_more::with_trait::IndexMut;
-
 use crate::CowStr;
 
 /// Maximum length of an inline string in bytes. On 64-bit systems this is
@@ -57,7 +53,12 @@ pub const MAX_INLINE_STR_LEN: usize = 3 * size_of::<isize>() - 2;
 #[derive(Debug, Clone, Copy)]
 pub struct StringTooLongError;
 
-#[derive(Debug, Clone, Copy, Constructor, Index, IndexMut)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "constructors", derive(derive_more::Constructor))]
+#[cfg_attr(
+  feature = "index",
+  derive(derive_more::Index, derive_more::IndexMut)
+)]
 /// Represents a short inline string stored on the stack in fixed-size buffers.
 ///
 /// Designed to hold very short strings (up to [`MAX_INLINE_STR_LEN`] bytes),
@@ -88,13 +89,19 @@ pub struct StringTooLongError;
 /// # }
 /// ```
 pub struct InlineStr {
-  #[index]
-  #[index_mut]
-  buf: [u8; MAX_INLINE_STR_LEN],
-  len: u8,
+  #[cfg_attr(feature = "index", index)]
+  #[cfg_attr(feature = "index", index_mut)]
+  pub(crate) buf: [u8; MAX_INLINE_STR_LEN],
+  pub(crate) len: u8,
 }
 
 impl InlineStr {
+  /// Creates a new `InlineStr`.
+  #[cfg(not(feature = "constructors"))]
+  pub const fn new(buf: [u8; MAX_INLINE_STR_LEN], len: u8) -> Self {
+    Self { buf, len }
+  }
+
   /// Returns the length of the string.
   #[inline]
   pub const fn len(&self) -> usize {
@@ -109,26 +116,25 @@ impl InlineStr {
 
   /// Returns a reference to the underlying byte buffer.
   #[inline]
-  pub const fn as_bytes(&self) -> &[u8] {
-    &self
-      .buf
-      .get(..self.len as usize)
-      .expect("InlineStr length should be valid and within bounds")
+  pub fn as_bytes(&self) -> &[u8] {
+    &self.buf[..self.len as usize]
   }
 
   /// Returns a mutable reference to the underlying byte buffer.
   #[inline]
-  pub const fn as_bytes_mut(&mut self) -> &mut [u8] {
-    self
-      .buf
-      .get_mut(..self.len as usize)
-      .expect("InlineStr length should be valid and within bounds")
+  pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+    &mut self.buf[..self.len as usize]
   }
 
   /// Returns a reference to the string as a slice.
+  ///
+  /// # Panics
+  ///
+  /// This method panics if the internal byte buffer does not contain valid
+  /// UTF-8 data.
   #[inline]
-  pub const fn as_str(&self) -> &str {
-    if let Ok(s) = str::from_utf8(&self.as_bytes()) {
+  pub fn as_str(&self) -> &str {
+    if let Ok(s) = str::from_utf8(self.as_bytes()) {
       s
     } else {
       panic!("InlineStr should only contain valid UTF-8 data");
@@ -137,21 +143,29 @@ impl InlineStr {
 
   /// Returns a mutable reference to the string as a slice.
   #[inline]
-  pub const fn as_mut_str(&mut self) -> Result<&mut str, str::Utf8Error> {
+  pub fn as_mut_str(&mut self) -> Result<&mut str, str::Utf8Error> {
     str::from_utf8_mut(self.as_bytes_mut())
   }
 
   /// Returns a reference to the string as a slice, without checking
-  /// for UTF-8 validity. The caller must ensure the data is valid UTF-8.
+  /// for UTF-8 validity.
+  ///
+  /// # Safety
+  ///
+  /// The caller must ensure the data is valid UTF-8.
   #[inline]
-  pub const unsafe fn as_str_unchecked(&self) -> &str {
+  pub unsafe fn as_str_unchecked(&self) -> &str {
     unsafe { str::from_utf8_unchecked(self.as_bytes()) }
   }
 
   /// Returns a mutable reference to the string as a slice, without checking
-  /// for UTF-8 validity. The caller must ensure the data is valid UTF-8.
+  /// for UTF-8 validity.
+  ///
+  /// # Safety
+  ///
+  /// The caller must ensure the data is valid UTF-8.
   #[inline]
-  pub const unsafe fn as_mut_str_unchecked(&mut self) -> &mut str {
+  pub unsafe fn as_mut_str_unchecked(&mut self) -> &mut str {
     unsafe { str::from_utf8_unchecked_mut(self.as_bytes_mut()) }
   }
 }
@@ -187,7 +201,7 @@ impl BorrowMut<str> for InlineStr {
   }
 }
 
-impl const Deref for InlineStr {
+impl Deref for InlineStr {
   type Target = str;
 
   #[inline(always)]
@@ -203,7 +217,7 @@ impl DerefMut for InlineStr {
   }
 }
 
-impl const AsRef<str> for InlineStr {
+impl AsRef<str> for InlineStr {
   #[inline(always)]
   fn as_ref(&self) -> &str {
     self.deref()
@@ -340,7 +354,7 @@ impl<'i> PartialEq<InlineStr> for CowStr<'i> {
   }
 }
 
-impl<'i> PartialEq<InlineStr> for &'i str {
+impl PartialEq<InlineStr> for &str {
   #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     *self == other.deref()
@@ -387,21 +401,21 @@ impl PartialEq<InlineStr> for &&str {
   }
 }
 
-impl<'i> PartialEq<InlineStr> for &'i mut str {
+impl PartialEq<InlineStr> for &mut str {
   #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     &**self == other.deref()
   }
 }
 
-impl<'i> PartialEq<InlineStr> for &'i mut String {
+impl PartialEq<InlineStr> for &mut String {
   #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     self.as_str() == other.deref()
   }
 }
 
-impl<'i> PartialEq<InlineStr> for &'i mut InlineStr {
+impl PartialEq<InlineStr> for &mut InlineStr {
   #[inline(always)]
   fn eq(&self, other: &InlineStr) -> bool {
     **self == *other
@@ -456,21 +470,21 @@ impl PartialOrd<InlineStr> for &&str {
   }
 }
 
-impl<'i> PartialOrd<InlineStr> for &'i mut str {
+impl PartialOrd<InlineStr> for &mut str {
   #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
-    Some((&**self).cmp(other.deref()))
+    Some((**self).cmp(other.deref()))
   }
 }
 
-impl<'i> PartialOrd<InlineStr> for &'i mut String {
+impl PartialOrd<InlineStr> for &mut String {
   #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some(self.as_str().cmp(other.deref()))
   }
 }
 
-impl<'i> PartialOrd<InlineStr> for &'i mut InlineStr {
+impl PartialOrd<InlineStr> for &mut InlineStr {
   #[inline(always)]
   fn partial_cmp(&self, other: &InlineStr) -> Option<Ordering> {
     Some((**self).deref().cmp(other.deref()))
@@ -512,7 +526,8 @@ mod tests {
 
   #[test]
   fn max_inline_str_len_is_at_least_4_bytes() {
-    assert!(MAX_INLINE_STR_LEN >= 4);
+    let max = MAX_INLINE_STR_LEN;
+    assert!(max >= 4);
   }
 
   #[test]
@@ -549,12 +564,34 @@ mod tests {
   }
 
   #[test]
+  #[cfg(target_pointer_width = "64")]
   fn try_inline_str_from_str() {
     let s = "Hello, world!";
     let inline_str = InlineStr::try_from(s);
     assert!(inline_str.is_ok());
     let inline_str = inline_str.unwrap();
     assert_eq!(inline_str.deref(), s);
+  }
+
+  #[test]
+  #[cfg(target_pointer_width = "32")]
+  fn inline_str_fits_ten() {
+    let s = "0123456789";
+    let stack_str = InlineStr::try_from(s);
+    assert!(stack_str.is_ok());
+    let stack_str = stack_str.unwrap();
+    assert_eq!(stack_str.len(), 10);
+    assert_eq!(stack_str.deref().len(), 10);
+    assert_eq!(stack_str.deref(), s);
+  }
+
+  #[test]
+  #[cfg(target_pointer_width = "32")]
+  fn inline_str_not_fits_eleven() {
+    let s = "0123456789a";
+    let err = InlineStr::try_from(s);
+    assert!(err.is_err());
+    assert!(matches!(err, Err(StringTooLongError)));
   }
 
   #[test]
