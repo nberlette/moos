@@ -21,10 +21,6 @@ use core::ops::DerefMut;
 use core::str;
 use core::str::FromStr;
 
-use derive_more::with_trait::Constructor;
-use derive_more::with_trait::Index;
-use derive_more::with_trait::IndexMut;
-
 use crate::CowStr;
 
 /// Maximum length of an inline string in bytes. On 64-bit systems this is
@@ -57,7 +53,12 @@ pub const MAX_INLINE_STR_LEN: usize = 3 * size_of::<isize>() - 2;
 #[derive(Debug, Clone, Copy)]
 pub struct StringTooLongError;
 
-#[derive(Debug, Clone, Copy, Constructor, Index, IndexMut)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "constructors", derive(derive_more::Constructor))]
+#[cfg_attr(
+  feature = "index",
+  derive(derive_more::Index, derive_more::IndexMut)
+)]
 /// Represents a short inline string stored on the stack in fixed-size buffers.
 ///
 /// Designed to hold very short strings (up to [`MAX_INLINE_STR_LEN`] bytes),
@@ -88,13 +89,19 @@ pub struct StringTooLongError;
 /// # }
 /// ```
 pub struct InlineStr {
-  #[index]
-  #[index_mut]
-  buf: [u8; MAX_INLINE_STR_LEN],
-  len: u8,
+  #[cfg_attr(feature = "index", index)]
+  #[cfg_attr(feature = "index", index_mut)]
+  pub(crate) buf: [u8; MAX_INLINE_STR_LEN],
+  pub(crate) len: u8,
 }
 
 impl InlineStr {
+  /// Creates a new `InlineStr`.
+  #[cfg(not(feature = "constructors"))]
+  pub const fn new(buf: [u8; MAX_INLINE_STR_LEN], len: u8) -> Self {
+    Self { buf, len }
+  }
+
   /// Returns the length of the string.
   #[inline]
   pub const fn len(&self) -> usize {
