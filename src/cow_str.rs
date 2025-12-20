@@ -82,6 +82,14 @@ impl<'i> CowStr<'i> {
     }
   }
 
+  /// Returns a mutable reference to the string as a slice.
+  ///
+  /// SAFETY: The caller must ensure that the mutable reference does not
+  /// violate any aliasing rules, i.e., there are no other references to the
+  /// same data while this mutable reference is in use. This is especially
+  /// important for the `Borrowed` variant, as modifying the data could lead to
+  /// undefined behavior if there are other references to the same data. Use
+  /// with caution and discretion.
   #[inline(always)]
   pub unsafe fn as_mut_str(&mut self) -> &mut str {
     unsafe {
@@ -102,6 +110,12 @@ impl<'i> CowStr<'i> {
     }
   }
 
+  /// Returns a mutable byte slice of the string's contents.
+  ///
+  /// SAFETY: The caller must ensure that the underlying data is not aliased
+  /// while the mutable byte slice is in use. This is particularly important
+  /// for the [`CowStr::Borrowed`] variant - modifying the data while there
+  /// are existing references to it is undefined behavior. Use with caution.
   #[inline(always)]
   pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
     unsafe {
