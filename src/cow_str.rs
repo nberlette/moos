@@ -173,7 +173,7 @@ impl<'i> FromStr for CowStr<'i> {
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     match InlineStr::try_from(s) {
       Ok(inline) => Ok(CowStr::Inlined(inline)),
-      Err(_) => Ok(CowStr::Borrowed(s)),
+      Err(_) => Ok(CowStr::Owned(s.to_string().into_boxed_str())),
     }
   }
 }
