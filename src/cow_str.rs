@@ -17,6 +17,7 @@ use core::mem::transmute_copy;
 use core::ops::Deref;
 use core::ops::DerefMut;
 use core::str;
+use core::str::FromStr;
 
 use crate::inline_str::*;
 
@@ -161,6 +162,18 @@ impl<'i> CowStr<'i> {
       CowStr::Owned(b) => b.into(),
       CowStr::Borrowed(b) => b.to_owned(),
       CowStr::Inlined(s) => s.deref().to_owned(),
+    }
+  }
+}
+
+impl<'i> FromStr for CowStr<'i> {
+  type Err = ();
+
+  #[inline(always)]
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match InlineStr::try_from(s) {
+      Ok(inline) => Ok(CowStr::Inlined(inline)),
+      Err(_) => Ok(CowStr::Borrowed(s)),
     }
   }
 }
