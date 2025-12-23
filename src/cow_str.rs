@@ -144,9 +144,7 @@ impl<'i> CowStr<'i> {
     self.len() == 0
   }
 
-  /// Converts the `CowStr` into an owned `String`, cloning the data if
-  /// necessary.
-  #[deprecated(since = "0.4.0", note = "use `into_string` instead")]
+  #[deprecated(since = "0.2.0", note = "use `into_string` instead")]
   #[inline(always)]
   pub fn into_owned(self) -> String {
     match self {
@@ -156,6 +154,8 @@ impl<'i> CowStr<'i> {
     }
   }
 
+  /// Converts the `CowStr` into an owned `String`, cloning the data if
+  /// necessary.
   #[inline(always)]
   pub fn into_string(self) -> String {
     match self {
