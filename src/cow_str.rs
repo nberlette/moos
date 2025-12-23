@@ -409,6 +409,77 @@ impl<'i> From<CowStr<'i>> for String {
   }
 }
 
+#[cfg(not(feature = "is_variant"))]
+impl<'i> CowStr<'i> {
+  /// Returns `true` if the `CowStr` is the `Owned` variant.
+  #[inline(always)]
+  pub const fn is_owned(&self) -> bool {
+    matches!(self, CowStr::Owned(_))
+  }
+
+  /// Returns `true` if the `CowStr` is the `Inlined` variant.
+  #[inline(always)]
+  pub const fn is_inlined(&self) -> bool {
+    matches!(self, CowStr::Inlined(_))
+  }
+
+  /// Returns `true` if the `CowStr` is the `Borrowed` variant.
+  #[inline(always)]
+  pub const fn is_borrowed(&self) -> bool {
+    matches!(self, CowStr::Borrowed(_))
+  }
+}
+
+impl CowStr<'_> {
+  /// Attempts to create an inline `CowStr` from a value that can be converted
+  /// to a string slice via an `AsRef<str>` impl.
+  ///
+  /// Returns an error if the string is too long to be inlined.
+  #[inline(always)]
+  pub fn try_inline<'i, T: 'i + AsRef<str>>(
+    s: T,
+  ) -> Result<CowStr<'i>, StringTooLongError> {
+    let inline = InlineStr::try_from(s.as_ref())?;
+    Ok(CowStr::Inlined(inline))
+  }
+
+  /// Creates an inline `CowStr` from a value that can be converted to a string
+  /// slice via an `AsRef<str>` impl, panicking if the string is too long to be
+  /// inlined.
+  ///
+  /// # Panics
+  ///
+  /// Panics if the string length exceeds [`MAX_INLINE_STR_LEN`].
+  #[inline(always)]
+  pub fn inline<'i, T: 'i + AsRef<str>>(s: T) -> CowStr<'i> {
+    let inline =
+      InlineStr::try_from(s.as_ref()).expect("String too long to inline!");
+    CowStr::Inlined(inline)
+  }
+
+  /// Forcibly creates an inline `CowStr` from a given value that can be
+  /// converted to a string slice via an `AsRef<str>` impl, truncating it if
+  /// necessary to fit within the maximum inline length.
+  #[inline(always)]
+  pub fn force_inline<'i, T: 'i + AsRef<str>>(s: T) -> CowStr<'i> {
+    let src = s.as_ref().as_bytes();
+    let mut len = src.len();
+    if len > MAX_INLINE_STR_LEN {
+      len = MAX_INLINE_STR_LEN;
+    }
+    let mut buf = [0u8; MAX_INLINE_STR_LEN];
+    buf[..len].copy_from_slice(&src[..len]);
+    let len = len as u8;
+    CowStr::Inlined(InlineStr { buf, len })
+  }
+
+  /// Creates an inline `CowStr` from a single character.
+  #[inline(always)]
+  pub fn from_char(c: char) -> CowStr<'static> {
+    CowStr::Inlined(c.into())
+  }
+}
+
 #[cfg(feature = "serde")]
 mod serde_impl {
   use core::fmt;
