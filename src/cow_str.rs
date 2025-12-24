@@ -17,6 +17,7 @@ use core::mem::transmute_copy;
 use core::ops::Deref;
 use core::ops::DerefMut;
 use core::str;
+use core::str::FromStr;
 
 use crate::inline_str::*;
 
@@ -143,9 +144,7 @@ impl<'i> CowStr<'i> {
     self.len() == 0
   }
 
-  /// Converts the `CowStr` into an owned `String`, cloning the data if
-  /// necessary.
-  #[deprecated(since = "0.4.0", note = "use `into_string` instead")]
+  #[deprecated(since = "0.2.0", note = "use `into_string` instead")]
   #[inline(always)]
   pub fn into_owned(self) -> String {
     match self {
@@ -155,12 +154,26 @@ impl<'i> CowStr<'i> {
     }
   }
 
+  /// Converts the `CowStr` into an owned `String`, cloning the data if
+  /// necessary.
   #[inline(always)]
   pub fn into_string(self) -> String {
     match self {
       CowStr::Owned(b) => b.into(),
       CowStr::Borrowed(b) => b.to_owned(),
       CowStr::Inlined(s) => s.deref().to_owned(),
+    }
+  }
+}
+
+impl<'i> FromStr for CowStr<'i> {
+  type Err = ();
+
+  #[inline(always)]
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match InlineStr::try_from(s) {
+      Ok(inline) => Ok(CowStr::Inlined(inline)),
+      Err(_) => Ok(CowStr::Owned(s.to_string().into_boxed_str())),
     }
   }
 }
@@ -393,6 +406,77 @@ impl<'i> From<CowStr<'i>> for String {
   #[inline(always)]
   fn from(s: CowStr<'i>) -> Self {
     s.into_string()
+  }
+}
+
+#[cfg(not(feature = "is_variant"))]
+impl<'i> CowStr<'i> {
+  /// Returns `true` if the `CowStr` is the `Owned` variant.
+  #[inline(always)]
+  pub const fn is_owned(&self) -> bool {
+    matches!(self, CowStr::Owned(_))
+  }
+
+  /// Returns `true` if the `CowStr` is the `Inlined` variant.
+  #[inline(always)]
+  pub const fn is_inlined(&self) -> bool {
+    matches!(self, CowStr::Inlined(_))
+  }
+
+  /// Returns `true` if the `CowStr` is the `Borrowed` variant.
+  #[inline(always)]
+  pub const fn is_borrowed(&self) -> bool {
+    matches!(self, CowStr::Borrowed(_))
+  }
+}
+
+impl CowStr<'_> {
+  /// Attempts to create an inline `CowStr` from a value that can be converted
+  /// to a string slice via an `AsRef<str>` impl.
+  ///
+  /// Returns an error if the string is too long to be inlined.
+  #[inline(always)]
+  pub fn try_inline<'i, T: 'i + AsRef<str>>(
+    s: T,
+  ) -> Result<CowStr<'i>, StringTooLongError> {
+    let inline = InlineStr::try_from(s.as_ref())?;
+    Ok(CowStr::Inlined(inline))
+  }
+
+  /// Creates an inline `CowStr` from a value that can be converted to a string
+  /// slice via an `AsRef<str>` impl, panicking if the string is too long to be
+  /// inlined.
+  ///
+  /// # Panics
+  ///
+  /// Panics if the string length exceeds [`MAX_INLINE_STR_LEN`].
+  #[inline(always)]
+  pub fn inline<'i, T: 'i + AsRef<str>>(s: T) -> CowStr<'i> {
+    let inline =
+      InlineStr::try_from(s.as_ref()).expect("String too long to inline!");
+    CowStr::Inlined(inline)
+  }
+
+  /// Forcibly creates an inline `CowStr` from a given value that can be
+  /// converted to a string slice via an `AsRef<str>` impl, truncating it if
+  /// necessary to fit within the maximum inline length.
+  #[inline(always)]
+  pub fn force_inline<'i, T: 'i + AsRef<str>>(s: T) -> CowStr<'i> {
+    let src = s.as_ref().as_bytes();
+    let mut len = src.len();
+    if len > MAX_INLINE_STR_LEN {
+      len = MAX_INLINE_STR_LEN;
+    }
+    let mut buf = [0u8; MAX_INLINE_STR_LEN];
+    buf[..len].copy_from_slice(&src[..len]);
+    let len = len as u8;
+    CowStr::Inlined(InlineStr { buf, len })
+  }
+
+  /// Creates an inline `CowStr` from a single character.
+  #[inline(always)]
+  pub fn from_char(c: char) -> CowStr<'static> {
+    CowStr::Inlined(c.into())
   }
 }
 

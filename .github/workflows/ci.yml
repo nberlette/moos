@@ -15,18 +15,18 @@ on:
     inputs:
       release:
         type: boolean
-        description: 'Create a GitHub Release?'
+        description: "Create a GitHub Release?"
         default: false
         required: false
       publish:
         type: boolean
-        description: 'Publish to crates.io?'
+        description: "Publish to crates.io?"
         default: false
         required: false
       version:
         type: string
-        description: 'Version (if $GITHUB_REF is not a tag)'
-        default: ''
+        description: "Version (if $GITHUB_REF is not a tag)"
+        default: ""
         required: false
 env:
   CARGO_TERM_COLOR: always
