@@ -67,8 +67,12 @@
 extern crate alloc;
 extern crate core;
 
+pub mod compact_vec;
 pub mod cow_str;
 pub mod inline_str;
+pub mod small_string;
 
+pub use compact_vec::*;
 pub use cow_str::*;
 pub use inline_str::*;
+pub use small_string::*;
