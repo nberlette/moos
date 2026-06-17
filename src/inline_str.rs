@@ -248,8 +248,12 @@ impl From<&InlineStr> for String {
 impl<T: AsRef<str>> From<&T> for InlineStr {
   #[inline(always)]
   fn from(s: &T) -> Self {
-    InlineStr::try_from(s.as_ref())
-      .expect("String length exceeds InlineStr maximum capacity")
+    let src = s.as_ref().as_bytes();
+    let len = src.len().min(MAX_INLINE_STR_LEN);
+    let mut buf = [0u8; MAX_INLINE_STR_LEN];
+    buf[..len].copy_from_slice(&src[..len]);
+    let len = len as u8;
+    Self { buf, len }
   }
 }
 
@@ -600,6 +604,23 @@ mod tests {
     let err = InlineStr::try_from(s);
     assert!(err.is_err());
     assert!(matches!(err, Err(StringTooLongError)));
+  }
+
+  #[test]
+  fn from_str_ref_ref_truncates_when_too_long() {
+    let s = "x".repeat(MAX_INLINE_STR_LEN + 1);
+    let s_ref = s.as_str();
+    let inline: InlineStr = (&s_ref).into();
+    assert_eq!(inline.len(), MAX_INLINE_STR_LEN);
+    assert_eq!(inline.deref(), &s[..MAX_INLINE_STR_LEN]);
+  }
+
+  #[test]
+  fn from_string_ref_truncates_when_too_long() {
+    let s = "y".repeat(MAX_INLINE_STR_LEN + 2);
+    let inline: InlineStr = (&s).into();
+    assert_eq!(inline.len(), MAX_INLINE_STR_LEN);
+    assert_eq!(inline.deref(), &s[..MAX_INLINE_STR_LEN]);
   }
 
   #[test]
