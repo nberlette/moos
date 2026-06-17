@@ -118,6 +118,10 @@ usage is a concern, such as embedded systems or real-time applications.
 - [x] Supports comparison and ordering operations.
 - [x] Supports serialization/deserialization with **[serde]**
   > **Note**: Requires the `serde` feature flag to be enabled.
+- [x] Supports conversions with **[smol_str]**
+  > **Note**: Requires the `smol_str` feature flag to be enabled.
+- [x] Supports conversions with **[compact_str]**
+  > **Note**: Requires the `compact_str` feature flag to be enabled.
 
 ```rust
 use moos::InlineStr;
@@ -191,6 +195,8 @@ match InlineStr::try_from(long_string) {
 [Nicholas Berlette]: https://github.com/nberlette "Follow @nberlette on GitHub for more cool stuff!"
 [`MAX_INLINE_STR_LEN`]: #max_inline_str_len
 [serde]: https://crates.io/crates/serde "Serialization framework for Rust"
+[smol_str]: https://crates.io/crates/smol_str "Small-string optimization string type"
+[compact_str]: https://crates.io/crates/compact_str "Compact heap-avoiding string type"
 [moos]: https://crates.io/crates/moos "moos on crates.io"
 [GitHub]: https://github.com/nberlette/moos "moos on GitHub"
 [Issues]: https://github.com/nberlette/moos/issues "moos issues on GitHub"

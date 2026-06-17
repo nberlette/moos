@@ -76,7 +76,7 @@ pub struct StringTooLongError;
 ///
 /// # fn main() -> Result<(), StringTooLongError> {
 /// let inline_str: InlineStr = "Hello".parse()?;
-/// assert_eq!(inline_str.as_ref(), "Hello");
+/// assert_eq!(inline_str.as_str(), "Hello");
 /// assert_eq!(inline_str.len(), 5);
 ///
 /// // This will fail because the string is too long:
@@ -224,6 +224,13 @@ impl AsRef<str> for InlineStr {
   }
 }
 
+impl AsRef<[u8]> for InlineStr {
+  #[inline(always)]
+  fn as_ref(&self) -> &[u8] {
+    self.as_bytes()
+  }
+}
+
 impl AsMut<str> for InlineStr {
   #[inline(always)]
   fn as_mut(&mut self) -> &mut str {
@@ -296,6 +303,13 @@ impl From<String> for InlineStr {
   }
 }
 
+impl From<CowStr<'_>> for InlineStr {
+  #[inline(always)]
+  fn from(s: CowStr<'_>) -> Self {
+    InlineStr::from(s.into_string())
+  }
+}
+
 impl TryFrom<&str> for InlineStr {
   type Error = StringTooLongError;
 
@@ -309,6 +323,48 @@ impl TryFrom<&str> for InlineStr {
     buf[..len].copy_from_slice(s.as_bytes());
     let len = len as u8;
     Ok(Self { buf, len })
+  }
+}
+
+#[cfg(feature = "smol_str")]
+mod smol_str_impl {
+  use smol_str::SmolStr;
+
+  use super::*;
+
+  impl From<SmolStr> for InlineStr {
+    #[inline(always)]
+    fn from(s: SmolStr) -> Self {
+      InlineStr::from(s.as_str().to_string())
+    }
+  }
+
+  impl From<InlineStr> for SmolStr {
+    #[inline(always)]
+    fn from(s: InlineStr) -> Self {
+      SmolStr::new(s.as_str())
+    }
+  }
+}
+
+#[cfg(feature = "compact_str")]
+mod compact_str_impl {
+  use compact_str::CompactString;
+
+  use super::*;
+
+  impl From<CompactString> for InlineStr {
+    #[inline(always)]
+    fn from(s: CompactString) -> Self {
+      InlineStr::from(s.to_string())
+    }
+  }
+
+  impl From<InlineStr> for CompactString {
+    #[inline(always)]
+    fn from(s: InlineStr) -> Self {
+      CompactString::from(s.as_str())
+    }
   }
 }
 
@@ -639,5 +695,32 @@ mod tests {
       assert_eq!(s_mut, "HELLO");
     }
     assert_eq!(s, "HELLO");
+  }
+
+  #[test]
+  fn inline_str_from_cow_str() {
+    let cow = CowStr::Borrowed("abcdef");
+    let inline = InlineStr::from(cow);
+    assert_eq!(inline, "abcdef");
+  }
+
+  #[cfg(feature = "smol_str")]
+  #[test]
+  fn smol_str_conversions() {
+    let smol = smol_str::SmolStr::new("smol");
+    let inline = InlineStr::from(smol.clone());
+    assert_eq!(inline, "smol");
+    let smol_back = smol_str::SmolStr::from(inline);
+    assert_eq!(smol_back, smol);
+  }
+
+  #[cfg(feature = "compact_str")]
+  #[test]
+  fn compact_str_conversions() {
+    let compact = compact_str::CompactString::from("compact");
+    let inline = InlineStr::from(compact.clone());
+    assert_eq!(inline, "compact");
+    let compact_back = compact_str::CompactString::from(inline);
+    assert_eq!(compact_back, compact);
   }
 }
