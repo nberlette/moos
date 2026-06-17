@@ -236,6 +236,13 @@ impl<'i> AsRef<str> for CowStr<'i> {
   }
 }
 
+impl<'i> AsRef<[u8]> for CowStr<'i> {
+  #[inline(always)]
+  fn as_ref(&self) -> &[u8] {
+    self.as_bytes()
+  }
+}
+
 impl<'i> AsMut<str> for CowStr<'i> {
   #[inline(always)]
   fn as_mut(&mut self) -> &mut str {
@@ -367,10 +374,31 @@ impl<'i> From<String> for CowStr<'i> {
   }
 }
 
+impl<'i> From<Box<str>> for CowStr<'i> {
+  #[inline(always)]
+  fn from(s: Box<str>) -> Self {
+    CowStr::Owned(s)
+  }
+}
+
+impl<'i> From<&'i String> for CowStr<'i> {
+  #[inline(always)]
+  fn from(s: &'i String) -> Self {
+    CowStr::Borrowed(s.as_str())
+  }
+}
+
 impl<'i> From<char> for CowStr<'i> {
   #[inline(always)]
   fn from(c: char) -> Self {
     CowStr::Inlined(c.into())
+  }
+}
+
+impl<'i> From<InlineStr> for CowStr<'i> {
+  #[inline(always)]
+  fn from(s: InlineStr) -> Self {
+    CowStr::Inlined(s)
   }
 }
 
@@ -406,6 +434,62 @@ impl<'i> From<CowStr<'i>> for String {
   #[inline(always)]
   fn from(s: CowStr<'i>) -> Self {
     s.into_string()
+  }
+}
+
+#[cfg(feature = "smol_str")]
+mod smol_str_impl {
+  use smol_str::SmolStr;
+
+  use super::*;
+
+  impl<'i> From<SmolStr> for CowStr<'i> {
+    #[inline(always)]
+    fn from(s: SmolStr) -> Self {
+      CowStr::Owned(s.to_string().into_boxed_str())
+    }
+  }
+
+  impl<'i> From<&'i SmolStr> for CowStr<'i> {
+    #[inline(always)]
+    fn from(s: &'i SmolStr) -> Self {
+      CowStr::Borrowed(s.as_str())
+    }
+  }
+
+  impl<'i> From<CowStr<'i>> for SmolStr {
+    #[inline(always)]
+    fn from(s: CowStr<'i>) -> Self {
+      SmolStr::new(s.as_str())
+    }
+  }
+}
+
+#[cfg(feature = "compact_str")]
+mod compact_str_impl {
+  use compact_str::CompactString;
+
+  use super::*;
+
+  impl<'i> From<CompactString> for CowStr<'i> {
+    #[inline(always)]
+    fn from(s: CompactString) -> Self {
+      CowStr::Owned(s.to_string().into_boxed_str())
+    }
+  }
+
+  impl<'i> From<&'i CompactString> for CowStr<'i> {
+    #[inline(always)]
+    fn from(s: &'i CompactString) -> Self {
+      CowStr::Borrowed(s.as_str())
+    }
+  }
+
+  impl<'i> From<CowStr<'i>> for CompactString {
+    #[inline(always)]
+    fn from(s: CowStr<'i>) -> Self {
+      CompactString::from(s.as_str())
+    }
   }
 }
 
@@ -658,6 +742,44 @@ mod tests {
     let expected = CowStr::Inlined(InlineStr::from(c));
     assert_eq!(actual, expected);
     assert!(variant_eq(&actual, &expected));
+  }
+
+  #[test]
+  fn from_core_types() {
+    let boxed: Box<str> = "boxed".to_string().into_boxed_str();
+    let cow = CowStr::from(boxed);
+    assert!(cow.is_owned());
+    assert_eq!(cow.as_str(), "boxed");
+
+    let s = "string".to_string();
+    let cow = CowStr::from(&s);
+    assert!(cow.is_borrowed());
+    assert_eq!(cow.as_str(), "string");
+
+    let inline = InlineStr::try_from("inline").unwrap();
+    let cow = CowStr::from(inline);
+    assert!(cow.is_inlined());
+    assert_eq!(cow.as_str(), "inline");
+  }
+
+  #[cfg(feature = "smol_str")]
+  #[test]
+  fn smol_str_conversions() {
+    let smol = smol_str::SmolStr::new("smol");
+    let cow = CowStr::from(smol.clone());
+    assert_eq!(cow.as_str(), "smol");
+    let smol_back = smol_str::SmolStr::from(cow);
+    assert_eq!(smol_back, smol);
+  }
+
+  #[cfg(feature = "compact_str")]
+  #[test]
+  fn compact_str_conversions() {
+    let compact = compact_str::CompactString::from("compact");
+    let cow = CowStr::from(compact.clone());
+    assert_eq!(cow.as_str(), "compact");
+    let compact_back = compact_str::CompactString::from(cow);
+    assert_eq!(compact_back, compact);
   }
 
   fn variant_eq<T>(a: &T, b: &T) -> bool {

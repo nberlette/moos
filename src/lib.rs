@@ -59,6 +59,8 @@
 //! - `std`: Enables integration with the Rust standard library. When disabled,
 //!   which is the default, the crate operates in `no_std` mode.
 //! - `serde`†: Enables serialization and deserialization support via Serde.
+//! - `smol_str`: Adds conversions to/from [`smol_str::SmolStr`].
+//! - `compact_str`: Adds conversions to/from [`compact_str::CompactString`].
 //!
 //! > † enabled by default
 
